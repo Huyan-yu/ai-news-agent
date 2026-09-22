@@ -7,3 +7,8 @@ briefings/
 profile.json
 .venv/
 venv/
+
+# 运行时数据库 (建表脚本 db.sql 保留, 生成的 .db 排除)
+
+/db/*.db
+

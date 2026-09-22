@@ -8,6 +8,7 @@ from pathlib import Path
 
 import news_engine
 import profile_store
+import database
 from agent_loop import react_loop
 
 BASE = Path(__file__).resolve().parent
@@ -90,7 +91,7 @@ def run_daily() -> dict:
     trace_path = str(LOGS / f"trace-{today}.json")
     res = react_loop(user_prompt, system, trace_path=trace_path)
 
-    return {
+    result = {
         "date": today,
         "briefing_path": str(BRIEFINGS / f"{today}.md"),
         "push_path": str(PUSH / f"{today}.json"),
@@ -99,6 +100,8 @@ def run_daily() -> dict:
         "llm": {"rounds": res["rounds"], "tool_calls": len(res["tool_calls"]),
                  "final": res["final_text"][:500]},
     }
+    database.record_briefing(result)
+    return result
 
 
 if __name__ == "__main__":

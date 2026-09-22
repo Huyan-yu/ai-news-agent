@@ -5,7 +5,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
-import profile_store, orchestrator, news_engine
+import profile_store, orchestrator, news_engine, database
 from pathlib import Path
 import uvicorn, json
 
@@ -22,7 +22,8 @@ def get_profile():
 @app.post("/api/profile")
 def save_profile(profile: dict):
     profile_store.save(profile)
-    return {"ok": True, "profile": profile}
+    sid = database.upsert_subscription(profile)
+    return {"ok": True, "id": sid, "profile": profile}
 
 
 @app.get("/api/briefings")
@@ -57,6 +58,22 @@ def list_push():
 def run_now():
     """手动触发一次完整任务: 抓新闻 + LLM 筛选/摘要/写简报/写推送。"""
     return orchestrator.run_daily()
+
+
+@app.get("/api/subscriptions")
+def get_subscriptions():
+    return database.list_subscriptions()
+
+
+@app.get("/api/briefings/db")
+def get_briefings_db():
+    """数据库里的简报运行记录 (含 LLM 轮数/工具调用/抓取条数)。"""
+    return database.list_briefings()
+
+
+@app.get("/api/db/stats")
+def get_db_stats():
+    return database.stats()
 
 
 @app.get("/")
