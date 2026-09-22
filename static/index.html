@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>每日 AI 新闻助手</title>
+  <style>
+    :root {
+      --bg: #f5f6f8; --panel: #ffffff; --line: #e3e6ea; --ink: #1f2429;
+      --muted: #6b7280; --accent: #2563eb; --accent-ink: #ffffff;
+      --warn: #b45309; --ok: #15803d;
+      --radius: 10px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", Roboto, sans-serif;
+      background: var(--bg); color: var(--ink); }
+    header { background: var(--panel); border-bottom: 1px solid var(--line);
+      padding: 14px 20px; display: flex; align-items: center; gap: 14px; }
+    header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+    .tabbar { display: flex; gap: 6px; margin-left: auto; }
+    .tab { padding: 7px 14px; border: 1px solid var(--line); background: #fafafa;
+      border-radius: 999px; cursor: pointer; font-size: 14px; color: var(--muted); }
+    .tab.active { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+    main { padding: 20px; max-width: 860px; margin: 0 auto; }
+    .card { background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px; }
+    .card h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+    input[type=text], input[type=time], select, textarea {
+      width: 100%; padding: 9px 11px; border: 1px solid var(--line);
+      border-radius: 8px; font-size: 14px; background: #fbfcfd; }
+    textarea { min-height: 70px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .chip { padding: 4px 10px; background: #eef2f7; border-radius: 999px;
+      font-size: 13px; cursor: default; }
+    .chip b { color: var(--accent); }
+    .btn { padding: 10px 16px; border: 1px solid var(--line); background: var(--accent);
+      color: var(--accent-ink); border-radius: 8px; font-size: 14px; cursor: pointer;
+      font-weight: 500; }
+    .btn.ghost { background: transparent; color: var(--ink); }
+    .actions { display: flex; gap: 10px; margin-top: 14px; }
+    .msg { font-size: 13px; margin-top: 10px; min-height: 18px; }
+    .msg.ok { color: var(--ok); } .msg.err { color: var(--warn); }
+    .list { display: flex; flex-direction: column; gap: 8px; }
+    .item { display: flex; justify-content: space-between; gap: 12px; align-items: center;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfd;
+      cursor: pointer; }
+    .item:hover { border-color: var(--accent); }
+    .item .t { font-size: 14px; font-weight: 500; }
+    .item .s { font-size: 12px; color: var(--muted); }
+    .view { display: none; } .view.active { display: block; }
+    pre.md { background: #0f172a; color: #e2e8f0; padding: 14px; border-radius: 8px;
+      white-space: pre-wrap; font-size: 13px; line-height: 1.5; max-height: 520px; overflow: auto; }
+    .badge { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: #eef2f7; color: var(--muted); }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+    .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid #fff6;
+      border-top-color: #fff; border-radius: 50%; animation: s 0.8s linear infinite;
+      vertical-align: -2px; margin-right: 6px; }
+    @keyframes s { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>每日 AI 新闻助手</h1>
+    <div class="tabbar">
+      <button class="tab active" data-view="profile">订阅偏好</button>
+      <button class="tab" data-view="briefings">历史简报</button>
+      <button class="tab" data-view="run">生成 &amp; 推送</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 订阅偏好 -->
+    <section id="view-profile" class="view active">
+      <div class="card">
+        <h2>身份</h2>
+        <div class="row">
+          <div><label>姓名</label><input type="text" id="f-name" placeholder="你的称呼"></div>
+          <div><label>角色 / 兴趣</label><input type="text" id="f-role" placeholder="如: 工程师 / 研究者 / 产品经理"></div>
+        </div>
+        <label>时区</label>
+        <input type="text" id="f-tz" value="Asia/Shanghai">
+      </div>
+      <div class="card">
+        <h2>订阅偏好</h2>
+        <label>关注话题 (逗号分隔)</label>
+        <input type="text" id="f-topics" value="LLM, Agents, Multimodal">
+        <label>关键词 (逗号分隔)</label>
+        <input type="text" id="f-keywords" value="openai, anthropic, google, deepseek, hugging face">
+        <label>排除词 (逗号分隔)</label>
+        <input type="text" id="f-excluded" placeholder="不感兴趣的内容">
+        <div class="row">
+          <div>
+            <label>简报语言</label>
+            <select id="f-lang">
+              <option value="zh">中文</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+          <div>
+            <label>每份简报最多条目</label>
+            <input type="text" id="f-max" value="12">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>推送</h2>
+        <div class="row">
+          <div>
+            <label>渠道</label>
+            <select id="f-channel">
+              <option value="outbox">本地 outbox (默认)</option>
+            </select>
+          </div>
+          <div>
+            <label>每天推送时间</label>
+            <input type="time" id="f-time" value="08:00">
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="btn-save">保存偏好</button>
+          <button class="btn ghost" id="btn-reload">重新载入</button>
+        </div>
+        <div class="msg" id="profile-msg"></div>
+      </div>
+    </section>
+
+    <!-- 历史简报 -->
+    <section id="view-briefings" class="view">
+      <div class="card">
+        <h2>历史简报</h2>
+        <div class="list" id="briefing-list"><div class="hint">载入中…</div></div>
+      </div>
+      <div class="card" id="briefing-detail" style="display:none">
+        <h2 id="briefing-title"></h2>
+        <pre class="md" id="briefing-md"></pre>
+      </div>
+    </section>
+
+    <!-- 生成 & 推送 -->
+    <section id="view-run" class="view">
+      <div class="card">
+        <h2>生成今天的简报</h2>
+        <p class="hint">点击下方按钮后, Agent 会: 抓取新闻源 → LLM 按你的偏好筛选/摘要 →
+          写入 <code>briefings/</code> 与 <code>push/</code>。全程由模型自主决定工具调用顺序。</p>
+        <div class="actions">
+          <button class="btn" id="btn-run">立即生成并推送</button>
+        </div>
+        <div class="msg" id="run-msg"></div>
+      </div>
+      <div class="card">
+        <h2>推送信封 (最近)</h2>
+        <div class="list" id="push-list"><div class="hint">载入中…</div></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (s) => document.querySelector(s);
+    const $$ = (s) => document.querySelectorAll(s);
+
+    // ---- tab 切换
+    $$(".tab").forEach(t => t.onclick = () => {
+      $$(".tab").forEach(x => x.classList.remove("active"));
+      $$(".view").forEach(x => x.classList.remove("active"));
+      t.classList.add("active");
+      $("#view-" + t.dataset.view).classList.add("active");
+      if (t.dataset.view === "briefings") loadBriefings();
+      if (t.dataset.view === "run") loadPush();
+    });
+
+    // ---- 偏好
+    async function loadProfile() {
+      const r = await fetch("/api/profile"); const p = await r.json();
+      $("#f-name").value = p.identity?.name || "";
+      $("#f-role").value = p.identity?.role || "";
+      $("#f-tz").value = p.identity?.timezone || "Asia/Shanghai";
+      $("#f-topics").value = (p.subscription?.topics || []).join(", ");
+      $("#f-keywords").value = (p.subscription?.keywords || []).join(", ");
+      $("#f-excluded").value = (p.subscription?.excluded || []).join(", ");
+      $("#f-lang").value = p.subscription?.language || "zh";
+      $("#f-max").value = p.subscription?.max_items_per_briefing ?? 12;
+      $("#f-channel").value = p.delivery?.channel || "outbox";
+      $("#f-time").value = p.delivery?.time || "08:00";
+    }
+    const split = (s) => s.split(",").map(x => x.trim()).filter(Boolean);
+    $("#btn-save").onclick = async () => {
+      const profile = {
+        identity: { name: $("#f-name").value, role: $("#f-role").value, timezone: $("#f-tz").value },
+        subscription: {
+          topics: split($("#f-topics").value),
+          keywords: split($("#f-keywords").value),
+          excluded: split($("#f-excluded").value),
+          language: $("#f-lang").value,
+          max_items_per_briefing: parseInt($("#f-max").value || "12", 10),
+        },
+        delivery: { channel: $("#f-channel").value, time: $("#f-time").value },
+      };
+      const r = await fetch("/api/profile", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile),
+      });
+      const j = await r.json();
+      const m = $("#profile-msg");
+      m.className = "msg " + (j.ok ? "ok" : "err");
+      m.textContent = j.ok ? "已保存。" : "保存失败。";
+    };
+    $("#btn-reload").onclick = loadProfile;
+
+    // ---- 历史简报
+    async function loadBriefings() {
+      const r = await fetch("/api/briefings"); const list = await r.json();
+      const box = $("#briefing-list"); box.innerHTML = "";
+      if (!list.length) { box.innerHTML = '<div class="hint">还没有简报, 去「生成 &amp; 推送」生成一份。</div>'; return; }
+      list.forEach(b => {
+        const el = document.createElement("div");
+        el.className = "item";
+        el.innerHTML = `<div><div class="t">${b.file}</div><div class="s">${b.size} bytes</div></div><span class="badge">查看</span>`;
+        el.onclick = async () => {
+          const r2 = await fetch(`/api/briefings/${encodeURIComponent(b.file)}`);
+          const j = await r2.json();
+          $("#briefing-title").textContent = j.file;
+          $("#briefing-md").textContent = j.markdown;
+          $("#briefing-detail").style.display = "block";
+          $("#briefing-detail").scrollIntoView({ behavior: "smooth" });
+        };
+        box.appendChild(el);
+      });
+    }
+
+    // ---- 推送信封
+    async function loadPush() {
+      const r = await fetch("/api/push"); const list = await r.json();
+      const box = $("#push-list"); box.innerHTML = "";
+      if (!list.length) { box.innerHTML = '<div class="hint">还没有推送。</div>'; return; }
+      list.forEach(p => {
+        const el = document.createElement("div");
+        el.className = "item";
+        const to = p.recipient || p.to || "(未指定)";
+        const subj = p.subject || p.topic || "(无主题)";
+        el.innerHTML = `<div><div class="t">${p.date || p.to || "推送"}</div>
+          <div class="s">收件: ${to} · 主题: ${subj}</div></div><span class="badge">outbox</span>`;
+        box.appendChild(el);
+      });
+    }
+
+    // ---- 生成
+    $("#btn-run").onclick = async () => {
+      const m = $("#run-msg");
+      m.className = "msg";
+      m.innerHTML = '<span class="spin"></span>Agent 正在抓取新闻并生成简报 (需要 1–2 分钟)…';
+      const r = await fetch("/api/run", { method: "POST" });
+      const j = await r.json();
+      if (j.error) { m.className = "msg err"; m.textContent = "失败: " + j.error; return; }
+      m.className = "msg ok";
+      m.textContent = `完成: 抓取 ${j.fetch?.ai_items ?? 0} 条 → ${j.llm?.tool_calls ?? 0} 次工具调用 → 简报已写入 ${j.briefing_path?.split("\\").pop()}`;
+      loadPush();
+    };
+
+    loadProfile();
+  </script>
+</body>
+</html>
